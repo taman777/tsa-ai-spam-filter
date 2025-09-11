@@ -3,7 +3,7 @@
 /**
  * Plugin Name: GTI AI Spam Filter
  * Description: Throws SPAM Away と連携し、コメントを AI でスパム判定。有効/無効をスイッチで切替可能。AIベンダー選択で項目を切替。
- * Version:     1.7.0
+ * Version:     1.6.1
  * Author:      GTI Inc.
  */
 
@@ -107,7 +107,6 @@ class GTI_Ai_Spam_Filter
 
         foreach ($fields as $f) {
             $row_class = 'gti-ai-row ' . $f[4];
-
             add_settings_field(
                 'gti_' . $f[0],
                 esc_html($f[1]),
@@ -147,58 +146,36 @@ class GTI_Ai_Spam_Filter
         );
     }
 
-    /**
-     * 設定保存時のサニタイズ
-     *
-     * @param [type] $input
-     * @return void
-     */
     public function sanitize_options($input)
     {
         $cur = $this->get_options();
         $out = $cur;
 
         // 初期化
-        $out['gti-ai-spam-filter-enabled']    = 0;
-        $out['gti-ai-spam-filter-enable_log'] = 0;
+        $out['enabled']    = 0;
+        $out['enable_log'] = 0;
 
-        $vendor = $input['gti-ai-spam-filter-vendor'] ?? $cur['gti-ai-spam-filter-vendor'];
+        $vendor = $input['vendor'] ?? $cur['vendor'];
 
         foreach ($input as $k => $v) {
-            // 有効化・ログフラグ
-            if (in_array($k, ['gti-ai-spam-filter-enabled', 'gti-ai-spam-filter-enable_log'], true)) {
+            if (in_array($k, ['enabled', 'enable_log'], true)) {
                 $out[$k] = !empty($v) ? 1 : 0;
-
-                // 閾値・タイムアウト
-            } elseif ($k === 'gti-ai-spam-filter-threshold') {
+            } elseif ($k === 'threshold') {
                 $out[$k] = max(0, min(1, floatval($v)));
-            } elseif ($k === 'gti-ai-spam-filter-timeout') {
+            } elseif ($k === 'timeout') {
                 $out[$k] = max(3, intval($v));
-
-                // APIキー系
             } elseif (preg_match('/api_key$/', $k)) {
-                // 選択中のベンダーなら「空欄＝保持」
                 if (strpos($k, $vendor) !== false) {
-                    if (!empty($v)) {
-                        $out[$k] = sanitize_text_field($v);
-                    } else {
-                        // 空欄なら既存値を残す
-                        $out[$k] = $cur[$k];
-                    }
+                    $out[$k] = !empty($v) ? sanitize_text_field($v) : $cur[$k];
                 } else {
-                    // 他ベンダーは空欄保存でクリア
                     $out[$k] = !empty($v) ? sanitize_text_field($v) : '';
                 }
-
-                // その他（モデル名やエンドポイントなど）
             } else {
                 $out[$k] = sanitize_text_field($v);
             }
         }
-
         return $out;
     }
-
 
     public function render_field($args)
     {
@@ -213,11 +190,7 @@ class GTI_Ai_Spam_Filter
 
         if ($type === 'switch') {
             echo '<label class="gti-switch">';
-            printf(
-                '<input type="checkbox" name="%s" value="1" %s />',
-                esc_attr($name),
-                checked(1, $val, false)
-            );
+            printf('<input type="checkbox" name="%s" value="1" %s />', esc_attr($name), checked(1, $val, false));
             echo '<span class="gti-slider"></span></label>';
             echo '<style>
                 .gti-switch{position:relative;display:inline-block;width:50px;height:24px;}
@@ -230,20 +203,11 @@ class GTI_Ai_Spam_Filter
                 .gti-switch input:checked+.gti-slider:before{transform:translateX(26px);}
             </style>';
         } elseif ($type === 'checkbox') {
-            printf(
-                '<input type="checkbox" name="%s" value="1" %s />',
-                esc_attr($name),
-                checked(1, $val, false)
-            );
+            printf('<input type="checkbox" name="%s" value="1" %s />', esc_attr($name), checked(1, $val, false));
         } elseif ($type === 'select') {
             echo '<select name="' . esc_attr($name) . '">';
             foreach ($args['options'] as $v => $label) {
-                printf(
-                    '<option value="%s" %s>%s</option>',
-                    esc_attr($v),
-                    selected($val, $v, false),
-                    esc_html($label)
-                );
+                printf('<option value="%s" %s>%s</option>', esc_attr($v), selected($val, $v, false), esc_html($label));
             }
             echo '</select>';
         } elseif ($type === 'password') {
@@ -251,13 +215,7 @@ class GTI_Ai_Spam_Filter
             if (!empty($val)) echo '<span style="color:green">（保存済み）</span>';
         } else {
             $extra = ($type === 'number') ? ' step="0.01" min="0" ' : '';
-            printf(
-                '<input type="%s" name="%s" value="%s" class="regular-text" %s/>',
-                esc_attr($type),
-                esc_attr($name),
-                esc_attr($val),
-                $extra
-            );
+            printf('<input type="%s" name="%s" value="%s" class="regular-text" %s/>', esc_attr($type), esc_attr($name), esc_attr($val), $extra);
         }
 
         echo '</div>';
@@ -265,10 +223,7 @@ class GTI_Ai_Spam_Filter
 
     public function enqueue_admin_assets($hook)
     {
-        if (
-            $hook !== 'settings_page_gti-ai-spam-filter' &&
-            $hook !== 'throws-spam-away_page_gti-ai-spam-filter'
-        ) return;
+        if ($hook !== 'settings_page_gti-ai-spam-filter' && $hook !== 'throws-spam-away_page_gti-ai-spam-filter') return;
 
         wp_add_inline_script('jquery-core', "
             jQuery(function($){
@@ -328,7 +283,7 @@ class GTI_Ai_Spam_Filter
         file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
     }
 
-    /** ---- 以下 judge_with_ai 系は前回コードのまま ---- */
+    /** ---- 以下 judge_with_ai 系 ---- */
     private function judge_with_ai($ctx)
     {
         $opt = $this->get_options();
@@ -354,52 +309,25 @@ class GTI_Ai_Spam_Filter
             . "投稿者: {$ctx['author']}\nコメント: {$ctx['comment']}\n";
     }
 
-    /**
-     * AI応答のパース
-     *
-     * @param [type] $raw
-     * @param [type] $opt
-     * @return void
-     */
     private function parse_result($raw, $opt)
     {
-        if (is_wp_error($raw)) {
-            return ['error' => true, 'reason' => $raw->get_error_message()];
-        }
+        if (is_wp_error($raw)) return ['error' => true, 'reason' => $raw->get_error_message()];
         $body = wp_remote_retrieve_body($raw);
-        if (empty($body)) {
-            return ['error' => true, 'reason' => 'Empty response'];
-        }
+        if (empty($body)) return ['error' => true, 'reason' => 'Empty response'];
 
-        // まず一次decode
         $json = json_decode($body, true);
 
-        // OpenAI: choices[0].message.content にJSON文字列が入っている場合
         if (isset($json['choices'][0]['message']['content'])) {
-            $candidate = trim($json['choices'][0]['message']['content']);
-            $parsed = json_decode($candidate, true);
-            if (is_array($parsed)) {
-                $json = $parsed;
-            }
-        }
-        // Anthropic: content[0].text にJSON文字列
-        elseif (isset($json['content'][0]['text'])) {
-            $candidate = trim($json['content'][0]['text']);
-            $parsed = json_decode($candidate, true);
-            if (is_array($parsed)) {
-                $json = $parsed;
-            }
-        }
-        // Google Gemini: candidates[0].content.parts[0].text にJSON文字列
-        elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-            $candidate = trim($json['candidates'][0]['content']['parts'][0]['text']);
-            $parsed = json_decode($candidate, true);
-            if (is_array($parsed)) {
-                $json = $parsed;
-            }
+            $parsed = json_decode(trim($json['choices'][0]['message']['content']), true);
+            if (is_array($parsed)) $json = $parsed;
+        } elseif (isset($json['content'][0]['text'])) {
+            $parsed = json_decode(trim($json['content'][0]['text']), true);
+            if (is_array($parsed)) $json = $parsed;
+        } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
+            $parsed = json_decode(trim($json['candidates'][0]['content']['parts'][0]['text']), true);
+            if (is_array($parsed)) $json = $parsed;
         }
 
-        // 最後にチェック
         if (!is_array($json) || empty($json['label'])) {
             return ['error' => true, 'reason' => 'Invalid JSON', 'raw' => $body];
         }
@@ -409,7 +337,7 @@ class GTI_Ai_Spam_Filter
             'label'     => strtoupper($json['label']) === 'SPAM' ? 'SPAM' : 'HAM',
             'score'     => isset($json['score']) ? floatval($json['score']) : 0.0,
             'reason'    => $json['reason'] ?? '',
-            'threshold' => $opt['gti-ai-spam-filter-threshold'],
+            'threshold' => $opt['threshold'],
         ];
     }
 
@@ -474,11 +402,19 @@ class GTI_Ai_Spam_Filter
     private function judge_custom($ctx, $opt)
     {
         if (empty($opt['custom_endpoint'])) return ['error' => true, 'reason' => 'Custom API endpoint missing'];
-        $payload = ['model' => $opt['custom_model'], 'comment' => $ctx['comment'], 'context' => $ctx];
-        $args = ['headers' => [
-            'Authorization' => 'Bearer ' . $opt['custom_api_key'],
-            'Content-Type' => 'application/json',
-        ], 'timeout' => $opt['timeout'], 'body' => wp_json_encode($payload)];
+        $payload = [
+            'model'   => $opt['custom_model'],
+            'comment' => $ctx['comment'],
+            'context' => $ctx,
+        ];
+        $args = [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $opt['custom_api_key'],
+                'Content-Type'  => 'application/json',
+            ],
+            'timeout' => $opt['timeout'],
+            'body'    => wp_json_encode($payload),
+        ];
         return $this->parse_result(wp_remote_post($opt['custom_endpoint'], $args), $opt);
     }
 }

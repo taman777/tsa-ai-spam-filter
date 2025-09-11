@@ -3,7 +3,7 @@ Contributors: gtiinc, taman777
 Tags: spam, ai, openai, anthropic, gemini, comment, filter
 Requires at least: 6.0
 Tested up to: 6.6
-Stable tag: 1.7.0
+Stable tag: 1.6.1
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -81,12 +81,6 @@ A. `wp-content/ai-spam-filter.log` に JSON 形式で記録されます。
 
 == Changelog ==
 
-= 1.7.0 =
-* すべてのオプションキーに `gti-ai-spam-filter-` プレフィックスを付与
-* APIキー保存仕様を改善（空欄保存は保持、非選択ベンダーはクリア）
-* レスポンス解析を強化し、Invalid JSON エラーを改善
-* README に懸念事項・サンプルログ・リリース版インストール手順を追加
-
 = 1.6.1 =
 * ログ保存機能を追加
 * 各AIベンダーの判定処理を実装
@@ -95,8 +89,3 @@ A. `wp-content/ai-spam-filter.log` に JSON 形式で記録されます。
 * 初回リリース
 * Throws SPAM Away との統合
 * OpenAI 判定の実装
-
-== Upgrade Notice ==
-
-= 1.7.0 =
-セキュリティと互換性のため、すべてのオプションキーが `gti-ai-spam-filter-` に変更されました。旧バージョンからアップグレードする際は再設定を推奨します。

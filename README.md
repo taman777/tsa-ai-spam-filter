@@ -1,4 +1,4 @@
-# GTI AI Spam Filter
+# TSA AI Spam Filter
 
 [Throws SPAM Away](https://ja.wordpress.org/plugins/throws-spam-away/) の拡張プラグインです。  
 WordPress コメント投稿時に AI (OpenAI / Anthropic Claude / Google Gemini / カスタム API) を利用してスパム判定を行います。  

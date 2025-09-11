@@ -25,7 +25,7 @@ OpenAI / Anthropic Claude / Google Gemini / カスタム API を利用して、�
 == Installation ==
 
 1. [Throws SPAM Away](https://ja.wordpress.org/plugins/throws-spam-away/) をインストール・有効化してください。
-2. [GitHub リリースページ](https://github.com/your-account/gti-ai-spam-filter/releases) から最新の zip ファイルをダウンロードしてください。
+2. [GitHub リリースページ](https://github.com/taman777/tsa-ai-spam-filter/releases) から最新の zip ファイルをダウンロードしてください。
 3. WordPress 管理画面で「プラグイン > 新規追加 > プラグインのアップロード」を開きます。
 4. ダウンロードした zip ファイルを選択して「今すぐインストール」→「有効化」を押してください。
 5. 管理画面「Throws SPAM Away > AIスパムフィルター」から設定画面を開きます。

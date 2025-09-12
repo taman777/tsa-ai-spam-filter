@@ -2,7 +2,7 @@
 Contributors: gti-inc
 Tags: spam, ai, openai, gemini, throws-spam-away
 Requires at least: 6.0
-Tested up to: 6.6
+Tested up to: 6.8
 Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -37,14 +37,15 @@ OpenAI、Google Gemini、または独自の Custom API を利用できます。
 現時点では **OpenAI と Google Gemini で動作確認済み** です。Custom API は未検証です。
 
 = ログファイルはどう管理しますか？ =
-`wp-content/ai-spam-filter.log` に出力されます。現在のところ、自動ローテーション機能はありません。  
-必要に応じて「設定画面 → ログ削除」ボタン、または手動で削除してください。
+`wp-content/ai-spam-filter.log` に出力されます。  
+「設定画面 → ログ削除」ボタンで削除可能です。  
+自動ローテーション機能は未実装なので必要に応じて削除してください。
 
 == Changelog ==
 
 = 1.7.1 =
 * AI判定を Throws SPAM Away の `tsa_validate_comment` フックに統合
-* ログ削除ボタンを設定画面に追加
+* **ログ削除ボタンを設定画面に追加**
 * OpenAI と Google Gemini での動作確認を反映
 
 = 1.6.1 =
@@ -53,4 +54,4 @@ OpenAI、Google Gemini、または独自の Custom API を利用できます。
 == Upgrade Notice ==
 
 = 1.7.1 =
-Throws SPAM Away の判定に AI を組み込み。OpenAI と Google Gemini で動作確認済み。
+Throws SPAM Away の判定に AI を組み込み。OpenAI と Google Gemini で動作確認済み。ログ削除ボタンを追加。

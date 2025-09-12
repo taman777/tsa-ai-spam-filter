@@ -87,14 +87,14 @@ class GTI_Ai_Spam_Filter
             ['enabled', 'AIスパムフィルター有効化', 'switch', [], 'common'],
             ['vendor', 'AIベンダー', 'select', [
                 'openai'    => 'OpenAI',
-                'anthropic' => 'Anthropic',
+                // 'anthropic' => 'Anthropic',
                 'google'    => 'Google Gemini',
                 'custom'    => 'カスタムAPI'
             ], 'common'],
             ['openai_api_key', 'OpenAI APIキー', 'password', [], 'vendor-openai'],
             ['openai_model', 'OpenAI モデル名', 'text', [], 'vendor-openai'],
-            ['anthropic_api_key', 'Anthropic APIキー', 'password', [], 'vendor-anthropic'],
-            ['anthropic_model', 'Anthropic モデル名', 'text', [], 'vendor-anthropic'],
+            // ['anthropic_api_key', 'Anthropic APIキー', 'password', [], 'vendor-anthropic'],
+            // ['anthropic_model', 'Anthropic モデル名', 'text', [], 'vendor-anthropic'],
             ['google_api_key', 'Google APIキー', 'password', [], 'vendor-google'],
             ['google_model', 'Google モデル名', 'text', [], 'vendor-google'],
             ['custom_api_key', 'カスタム APIキー', 'password', [], 'vendor-custom'],
@@ -132,8 +132,8 @@ class GTI_Ai_Spam_Filter
                 'vendor'         => 'openai',
                 'openai_api_key' => '',
                 'openai_model'   => 'gpt-4o-mini',
-                'anthropic_api_key' => '',
-                'anthropic_model'   => 'claude-3-haiku',
+                // 'anthropic_api_key' => '',
+                // 'anthropic_model'   => 'claude-3-haiku',
                 'google_api_key' => '',
                 'google_model'   => 'gemini-1.5-flash',
                 'custom_api_key' => '',
@@ -290,8 +290,8 @@ class GTI_Ai_Spam_Filter
         switch ($opt['vendor']) {
             case 'openai':
                 return $this->judge_openai($ctx, $opt);
-            case 'anthropic':
-                return $this->judge_anthropic($ctx, $opt);
+                // case 'anthropic':
+                //     return $this->judge_anthropic($ctx, $opt);
             case 'google':
                 return $this->judge_google($ctx, $opt);
             case 'custom':
@@ -309,6 +309,13 @@ class GTI_Ai_Spam_Filter
             . "投稿者: {$ctx['author']}\nコメント: {$ctx['comment']}\n";
     }
 
+    /**
+     * AIの応答を解析する
+     *
+     * @param [type] $raw
+     * @param [type] $opt
+     * @return void
+     */
     private function parse_result($raw, $opt)
     {
         if (is_wp_error($raw)) return ['error' => true, 'reason' => $raw->get_error_message()];
@@ -317,14 +324,24 @@ class GTI_Ai_Spam_Filter
 
         $json = json_decode($body, true);
 
+        // OpenAI
         if (isset($json['choices'][0]['message']['content'])) {
-            $parsed = json_decode(trim($json['choices'][0]['message']['content']), true);
-            if (is_array($parsed)) $json = $parsed;
-        } elseif (isset($json['content'][0]['text'])) {
-            $parsed = json_decode(trim($json['content'][0]['text']), true);
-            if (is_array($parsed)) $json = $parsed;
-        } elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-            $parsed = json_decode(trim($json['candidates'][0]['content']['parts'][0]['text']), true);
+            $candidate = trim($json['choices'][0]['message']['content']);
+        }
+        // // Anthropic
+        // elseif (isset($json['content'][0]['text'])) {
+        //     $candidate = trim($json['content'][0]['text']);
+        // }
+        // Google Gemini
+        elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
+            $candidate = trim($json['candidates'][0]['content']['parts'][0]['text']);
+        }
+
+        // コードブロック除去 (```json ... ```)
+        if (!empty($candidate)) {
+            $candidate = preg_replace('/^```[a-zA-Z]*\n?/', '', $candidate);
+            $candidate = preg_replace('/```$/', '', $candidate);
+            $parsed = json_decode(trim($candidate), true);
             if (is_array($parsed)) $json = $parsed;
         }
 
@@ -340,6 +357,7 @@ class GTI_Ai_Spam_Filter
             'threshold' => $opt['threshold'],
         ];
     }
+
 
     private function judge_openai($ctx, $opt)
     {
@@ -365,26 +383,26 @@ class GTI_Ai_Spam_Filter
         return $this->parse_result(wp_remote_post($endpoint, $args), $opt);
     }
 
-    private function judge_anthropic($ctx, $opt)
-    {
-        if (empty($opt['anthropic_api_key'])) return ['error' => true, 'reason' => 'Anthropic API key missing'];
-        $endpoint = 'https://api.anthropic.com/v1/messages';
-        $payload = [
-            'model' => $opt['anthropic_model'],
-            'max_tokens' => 300,
-            'messages' => [['role' => 'user', 'content' => $this->build_prompt($ctx)]]
-        ];
-        $args = [
-            'headers' => [
-                'x-api-key' => $opt['anthropic_api_key'],
-                'Content-Type' => 'application/json',
-                'anthropic-version' => '2023-06-01',
-            ],
-            'timeout' => $opt['timeout'],
-            'body' => wp_json_encode($payload)
-        ];
-        return $this->parse_result(wp_remote_post($endpoint, $args), $opt);
-    }
+    // private function judge_anthropic($ctx, $opt)
+    // {
+    //     if (empty($opt['anthropic_api_key'])) return ['error' => true, 'reason' => 'Anthropic API key missing'];
+    //     $endpoint = 'https://api.anthropic.com/v1/messages';
+    //     $payload = [
+    //         'model' => $opt['anthropic_model'],
+    //         'max_tokens' => 300,
+    //         'messages' => [['role' => 'user', 'content' => $this->build_prompt($ctx)]]
+    //     ];
+    //     $args = [
+    //         'headers' => [
+    //             'x-api-key' => $opt['anthropic_api_key'],
+    //             'Content-Type' => 'application/json',
+    //             'anthropic-version' => '2023-06-01',
+    //         ],
+    //         'timeout' => $opt['timeout'],
+    //         'body' => wp_json_encode($payload)
+    //     ];
+    //     return $this->parse_result(wp_remote_post($endpoint, $args), $opt);
+    // }
 
     private function judge_google($ctx, $opt)
     {

@@ -3,7 +3,7 @@
 /**
  * Plugin Name: GTI AI Spam Filter
  * Description: Throws SPAM Away と連携し、コメントを AI でスパム判定。有効/無効をスイッチで切替可能。AIベンダー選択で項目を切替。
- * Version:     1.6.1
+ * Version:     1.7.0
  * Author:      GTI Inc.
  */
 
@@ -18,8 +18,13 @@ class GTI_Ai_Spam_Filter
         add_action('admin_menu', [$this, 'add_submenu']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
-        add_filter('tsa_validate_comment', [$this, 'filter_tsa_validate_comment'], 20, 5);
-        add_filter('pre_comment_approved', [$this, 'filter_pre_comment_approved'], 20, 2);
+
+        // Throws SPAM Away フィルターフック
+        add_filter('tsa_validate_comment', [$this, 'filter_tsa_validate_comment'], 20, 6);
+
+        // ログ削除用
+        add_action('admin_post_gti_ai_spam_filter_clear_log', [$this, 'clear_log_file']);
+        add_action('admin_notices', [$this, 'admin_notices']);
     }
 
     /** メニュー追加 */
@@ -59,6 +64,7 @@ class GTI_Ai_Spam_Filter
         echo '<div class="notice notice-error"><p>Throws SPAM Away が有効化されていません。</p></div></div>';
     }
 
+    /** 設定ページ */
     public function render_settings_page()
     {
         echo '<div class="wrap" id="gti-ai-spam-filter"><h1>AIスパムフィルター設定</h1>';
@@ -66,7 +72,51 @@ class GTI_Ai_Spam_Filter
         settings_fields(self::OPT_KEY);
         do_settings_sections('gti-ai-spam-filter');
         submit_button();
-        echo '</form></div>';
+        echo '</form>';
+
+        // ログ削除フォーム
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin-top:20px;">';
+        wp_nonce_field('gti_ai_spam_filter_clear_log');
+        echo '<input type="hidden" name="action" value="gti_ai_spam_filter_clear_log">';
+        submit_button('ログ削除', 'delete');
+        echo '</form>';
+
+        echo '</div>';
+    }
+
+    /** ログ削除処理 */
+    public function clear_log_file()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('権限がありません');
+        }
+        check_admin_referer('gti_ai_spam_filter_clear_log');
+
+        $file = WP_CONTENT_DIR . '/ai-spam-filter.log';
+        if (file_exists($file)) {
+            if (@unlink($file)) {
+                wp_safe_redirect(admin_url('admin.php?page=gti-ai-spam-filter&log_cleared=1'));
+            } else {
+                wp_safe_redirect(admin_url('admin.php?page=gti-ai-spam-filter&log_error=1'));
+            }
+        } else {
+            wp_safe_redirect(admin_url('admin.php?page=gti-ai-spam-filter&log_missing=1'));
+        }
+        exit;
+    }
+
+    /** 通知 */
+    public function admin_notices()
+    {
+        if (!isset($_GET['page']) || $_GET['page'] !== 'gti-ai-spam-filter') return;
+
+        if (isset($_GET['log_cleared'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>AIスパムフィルターログを削除しました。</p></div>';
+        } elseif (isset($_GET['log_error'])) {
+            echo '<div class="notice notice-error"><p>ログファイルの削除に失敗しました。</p></div>';
+        } elseif (isset($_GET['log_missing'])) {
+            echo '<div class="notice notice-warning is-dismissible"><p>ログファイルは存在しませんでした。</p></div>';
+        }
     }
 
     /** 設定項目 */
@@ -87,14 +137,11 @@ class GTI_Ai_Spam_Filter
             ['enabled', 'AIスパムフィルター有効化', 'switch', [], 'common'],
             ['vendor', 'AIベンダー', 'select', [
                 'openai'    => 'OpenAI',
-                // 'anthropic' => 'Anthropic',
                 'google'    => 'Google Gemini',
                 'custom'    => 'カスタムAPI'
             ], 'common'],
             ['openai_api_key', 'OpenAI APIキー', 'password', [], 'vendor-openai'],
             ['openai_model', 'OpenAI モデル名', 'text', [], 'vendor-openai'],
-            // ['anthropic_api_key', 'Anthropic APIキー', 'password', [], 'vendor-anthropic'],
-            // ['anthropic_model', 'Anthropic モデル名', 'text', [], 'vendor-anthropic'],
             ['google_api_key', 'Google APIキー', 'password', [], 'vendor-google'],
             ['google_model', 'Google モデル名', 'text', [], 'vendor-google'],
             ['custom_api_key', 'カスタム APIキー', 'password', [], 'vendor-custom'],
@@ -132,8 +179,6 @@ class GTI_Ai_Spam_Filter
                 'vendor'         => 'openai',
                 'openai_api_key' => '',
                 'openai_model'   => 'gpt-4o-mini',
-                // 'anthropic_api_key' => '',
-                // 'anthropic_model'   => 'claude-3-haiku',
                 'google_api_key' => '',
                 'google_model'   => 'gemini-1.5-flash',
                 'custom_api_key' => '',
@@ -192,16 +237,14 @@ class GTI_Ai_Spam_Filter
             echo '<label class="gti-switch">';
             printf('<input type="checkbox" name="%s" value="1" %s />', esc_attr($name), checked(1, $val, false));
             echo '<span class="gti-slider"></span></label>';
-            echo '<style>
-                .gti-switch{position:relative;display:inline-block;width:50px;height:24px;}
+            echo '<style>.gti-switch{position:relative;display:inline-block;width:50px;height:24px;}
                 .gti-switch input{opacity:0;width:0;height:0;}
                 .gti-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
                     background:#ccc;transition:.4s;border-radius:24px;}
                 .gti-slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;
                     background:#fff;transition:.4s;border-radius:50%;}
                 .gti-switch input:checked+.gti-slider{background:#2271b1;}
-                .gti-switch input:checked+.gti-slider:before{transform:translateX(26px);}
-            </style>';
+                .gti-switch input:checked+.gti-slider:before{transform:translateX(26px);}</style>';
         } elseif ($type === 'checkbox') {
             printf('<input type="checkbox" name="%s" value="1" %s />', esc_attr($name), checked(1, $val, false));
         } elseif ($type === 'select') {
@@ -215,16 +258,26 @@ class GTI_Ai_Spam_Filter
             if (!empty($val)) echo '<span style="color:green">（保存済み）</span>';
         } else {
             $extra = ($type === 'number') ? ' step="0.01" min="0" ' : '';
-            printf('<input type="%s" name="%s" value="%s" class="regular-text" %s/>', esc_attr($type), esc_attr($name), esc_attr($val), $extra);
+            printf(
+                '<input type="%s" name="%s" value="%s" class="regular-text" %s/>',
+                esc_attr($type),
+                esc_attr($name),
+                esc_attr($val),
+                $extra
+            );
         }
-
         echo '</div>';
     }
 
+    /**
+     * 管理画面用スクリプト
+     *
+     * @param [type] $hook
+     * @return void
+     */
     public function enqueue_admin_assets($hook)
     {
         if ($hook !== 'settings_page_gti-ai-spam-filter' && $hook !== 'throws-spam-away_page_gti-ai-spam-filter') return;
-
         wp_add_inline_script('jquery-core', "
             jQuery(function($){
                 function toggleVendorFields(){
@@ -239,41 +292,65 @@ class GTI_Ai_Spam_Filter
         ");
     }
 
-    public function filter_tsa_validate_comment($valid, $author, $comment, $post_id, $tsa_on_flg)
+    /**
+     * TSA バリデーション拡張
+     * @param bool $valid TSAの判定結果
+     * @param string $author 投稿者名
+     * @param string $comment コメント内容
+     * @param int $post_id 投稿ID
+     * @param bool $tsa_on_flg TSAが有効かどうか
+     * @param object $tsa_obj TSAの内部オブジェクト（エラー情報設定用）
+     * @return bool 拒否なら false を返す
+     */
+    public function filter_tsa_validate_comment($valid, $author, $comment, $post_id, $tsa_on_flg, $tsa_obj)
     {
         $opt = $this->get_options();
+
+        // 無効ならスルー
         if (empty($opt['enabled'])) return $valid;
-        return $valid; // 本来はAI判定処理
-    }
 
-    public function filter_pre_comment_approved($approved, $commentdata)
-    {
-        $opt = $this->get_options();
-        if (empty($opt['enabled'])) return $approved;
-        if ($approved === 'spam') return 'spam';
+        // TSAですでにブロック済みなら尊重
+        if ($valid === false) return false;
 
+        // AI判定
         $ctx = [
-            'author'   => $commentdata['comment_author'] ?? '',
-            'comment'  => $commentdata['comment_content'] ?? '',
-            'post_id'  => $commentdata['comment_post_ID'] ?? 0,
-            'site'     => home_url('/'),
-            'permalink' => !empty($commentdata['comment_post_ID']) ? get_permalink($commentdata['comment_post_ID']) : ''
+            'author'    => $author,
+            'comment'   => $comment,
+            'post_id'   => $post_id,
+            'site'      => home_url('/'),
+            'permalink' => get_permalink($post_id),
         ];
 
         $ai = $this->judge_with_ai($ctx);
 
+        // ログ
         $this->write_log([
             'context' => $ctx,
-            'ai' => $ai,
-            'approved_before' => $approved,
-            'approved_after' => ($ai['label'] === 'SPAM' && $ai['score'] >= $ai['threshold']) ? 'spam' : $approved,
+            'ai'      => $ai,
+            'tsa_result' => $valid,
         ]);
 
-        if ($ai['error']) return $approved;
-        if ($ai['label'] === 'SPAM' && $ai['score'] >= $ai['threshold']) return 'spam';
-        return $approved;
+        if ($ai['error']) return $valid;
+
+        if ($ai['label'] === 'SPAM' && $ai['score'] >= $ai['threshold']) {
+            if (is_object($tsa_obj)) {
+                $tsa_obj->error_type = 'AI_SPAM';
+                $tsa_obj->error_message = !empty($ai['reason'])
+                    ? $ai['reason']
+                    : 'AI によりスパムと判定されました。';
+            }
+            return false;
+        }
+
+        return $valid;
     }
 
+    /**
+     * ログ書き込み
+     *
+     * @param [type] $data
+     * @return void
+     */
     private function write_log($data)
     {
         $opt = $this->get_options();

@@ -1,91 +1,56 @@
 === GTI AI Spam Filter ===
-Contributors: gtiinc, taman777
-Tags: spam, ai, openai, anthropic, gemini, comment, filter
+Contributors: gti-inc
+Tags: spam, ai, openai, gemini, throws-spam-away
 Requires at least: 6.0
 Tested up to: 6.6
-Stable tag: 1.6.1
-Requires PHP: 7.4
+Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-AI を利用して WordPress コメントをスパム判定する、Throws SPAM Away 専用の拡張プラグインです。
+Throws SPAM Away と連携し、コメントを AI (OpenAI / Google Gemini / Custom API) でスパム判定します。
 
 == Description ==
 
-**GTI AI Spam Filter** は [Throws SPAM Away](https://ja.wordpress.org/plugins/throws-spam-away/) の拡張プラグインです。  
-OpenAI / Anthropic Claude / Google Gemini / カスタム API を利用して、コメント投稿時に AI によるスパム判定を行います。
+GTI AI Spam Filter は、WordPress プラグイン「Throws SPAM Away」の拡張です。  
+コメント投稿時に外部 AI を利用してスパム判定を行い、判定結果に応じてブロックします。
 
-- Throws SPAM Away がインストールされ有効化されている場合のみ動作します
-- AI のスコアリング結果に基づき、スパムコメントを即座にブロック
-- ベンダーごとに API キーとモデルを設定可能
-- ログ保存機能（任意）
-
-**注意**: このプラグイン単体では動作しません。必ず先に Throws SPAM Away を導入してください。
+* AIベンダーを選択可能（OpenAI / Google Gemini / Custom API）
+* APIキー、モデル名、タイムアウト秒数などを設定画面から指定可能
+* Throws SPAM Away のスパム判定フック `tsa_validate_comment` に連携
+* ログファイル出力機能（wp-content/ai-spam-filter.log）
+* ログ削除ボタンを管理画面から実行可能
 
 == Installation ==
 
-1. [Throws SPAM Away](https://ja.wordpress.org/plugins/throws-spam-away/) をインストール・有効化してください。
-2. [GitHub リリースページ](https://github.com/taman777/tsa-ai-spam-filter/releases) から最新の zip ファイルをダウンロードしてください。
-3. WordPress 管理画面で「プラグイン > 新規追加 > プラグインのアップロード」を開きます。
-4. ダウンロードした zip ファイルを選択して「今すぐインストール」→「有効化」を押してください。
-5. 管理画面「Throws SPAM Away > AIスパムフィルター」から設定画面を開きます。
-6. 使用する AI ベンダーを選び、APIキーとモデルを入力してください。
-7. 「AIスパムフィルター有効化」をオンにすると稼働します。
+1. プラグインを `wp-content/plugins/` にアップロード
+2. WordPress 管理画面から有効化
+3. Throws SPAM Away が有効化されている状態で、設定画面に「AIスパムフィルター」が追加されます
+4. 各ベンダーの API キーやモデルを設定してください
 
 == Frequently Asked Questions ==
 
-= Q. Throws SPAM Away がなくても動きますか？ =
-A. 動作しません。本プラグインは Throws SPAM Away の拡張です。
+= Throws SPAM Away がないと動作しますか？ =
+いいえ。このプラグインは Throws SPAM Away の拡張機能です。有効化されていない場合はエラーメッセージを表示します。
 
-= Q. APIキーはどのように扱われますか？ =
-A. セキュリティのため、保存後はマスクされ「（保存済み）」と表示されます。入力欄を空欄にして保存しても既存キーは消えません（ただし、他ベンダーを選択した場合はそのベンダーのキーは削除されます）。
+= どの AI が利用可能ですか？ =
+OpenAI、Google Gemini、または独自の Custom API を利用できます。  
+現時点では **OpenAI と Google Gemini で動作確認済み** です。Custom API は未検証です。
 
-= Q. ログはどこに出力されますか？ =
-A. `wp-content/ai-spam-filter.log` に JSON 形式で記録されます。
-
-== Screenshots ==
-
-1. 設定画面（ベンダー選択）
-2. OpenAI 設定例
-3. スパム判定ログ出力例
-
-== サンプルログ出力 ==
-
-例: コメントがスパムと判定された場合のログ行
-
-```
-[2025-09-11 14:05:23] {
-  "context": {
-    "author": "test user",
-    "comment": "今すぐ副業で月収100万円！誰でも簡単にできます！",
-    "post_id": 123,
-    "site": "https://example.com",
-    "permalink": "https://example.com/?p=123"
-  },
-  "ai": {
-    "error": false,
-    "label": "SPAM",
-    "score": 0.95,
-    "reason": "広告的表現と煽り文句が含まれるためスパムと判定",
-    "threshold": 0.7
-  },
-  "approved_before": 1,
-  "approved_after": "spam"
-}
-```
-
-== 懸念事項 ==
-
-- **ログ削除機能は未実装** です。`wp-content/ai-spam-filter.log` が大きくなった場合は手動で削除してください。  
-- **動作確認は OpenAI（ChatGPT API）でのみ実施済み** です。他のベンダー（Anthropic, Google Gemini, Custom）は設定UIを用意していますが、実運用での十分なテストは未実施です。  
+= ログファイルはどう管理しますか？ =
+`wp-content/ai-spam-filter.log` に出力されます。現在のところ、自動ローテーション機能はありません。  
+必要に応じて「設定画面 → ログ削除」ボタン、または手動で削除してください。
 
 == Changelog ==
 
-= 1.6.1 =
-* ログ保存機能を追加
-* 各AIベンダーの判定処理を実装
+= 1.7.1 =
+* AI判定を Throws SPAM Away の `tsa_validate_comment` フックに統合
+* ログ削除ボタンを設定画面に追加
+* OpenAI と Google Gemini での動作確認を反映
 
-= 1.5.0 =
+= 1.6.1 =
 * 初回リリース
-* Throws SPAM Away との統合
-* OpenAI 判定の実装
+
+== Upgrade Notice ==
+
+= 1.7.1 =
+Throws SPAM Away の判定に AI を組み込み。OpenAI と Google Gemini で動作確認済み。

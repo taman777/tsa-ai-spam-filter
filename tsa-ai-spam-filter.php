@@ -74,6 +74,11 @@ class GTI_Ai_Spam_Filter
         submit_button();
         echo '</form>';
 
+        // ログ表示
+        $log_preview = $this->get_log_preview();
+        echo '<h2 style="margin-top:24px;">ログ表示（最新200行）</h2>';
+        echo '<textarea readonly class="large-text code" rows="14" style="font-family:monospace;">' . esc_textarea($log_preview) . '</textarea>';
+
         // ログ削除フォーム
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin-top:20px;">';
         wp_nonce_field('gti_ai_spam_filter_clear_log');
@@ -82,6 +87,78 @@ class GTI_Ai_Spam_Filter
         echo '</form>';
 
         echo '</div>';
+    }
+
+    /**
+     * ログ表示用に末尾を取得
+     *
+     * @param int $max_lines
+     * @return string
+     */
+    private function get_log_preview($max_lines = 200)
+    {
+        $file = WP_CONTENT_DIR . '/ai-spam-filter.log';
+        if (!file_exists($file)) {
+            return 'ログファイルはまだ作成されていません。';
+        }
+
+        if (!is_readable($file)) {
+            return 'ログファイルを読み取れません。';
+        }
+
+        $lines = @file($file, FILE_IGNORE_NEW_LINES);
+        if ($lines === false) {
+            return 'ログファイルの読み取りに失敗しました。';
+        }
+
+        $total = count($lines);
+        if ($total === 0) {
+            return 'ログファイルは空です。';
+        }
+
+        $tail = array_slice($lines, -1 * absint($max_lines));
+        $formatted = [];
+
+        // 新しいログを先頭に表示
+        for ($i = count($tail) - 1; $i >= 0; $i--) {
+            $log_line = $tail[$i];
+
+            $date_str = '';
+            $json_str = $log_line;
+            if (preg_match('/^\[([^\]]+)\]\s*(.+)$/u', $log_line, $m)) {
+                $date_str = $m[1];
+                $json_str = $m[2];
+            }
+
+            $row = json_decode($json_str, true);
+            if (!is_array($row)) {
+                $formatted[] = sprintf('[%s] RAW: %s', $date_str ?: '-', $log_line);
+                continue;
+            }
+
+            $ctx = isset($row['context']) && is_array($row['context']) ? $row['context'] : [];
+            $ai = isset($row['ai']) && is_array($row['ai']) ? $row['ai'] : [];
+            // 一行で
+            $comment = preg_replace('/\s+/u', ' ', (string) ($ctx['comment'] ?? ''));
+            $reason = preg_replace('/\s+/u', ' ', (string) ($ai['reason'] ?? ''));
+            $formatted[] = sprintf(
+                "[%s] author=%s | comment=%s | post_id=%s | site=%s | permalink=%s | ai.error=%s | ai.label=%s | ai.score=%s | ai.threshold=%s | ai.reason=%s | tsa_result=%s",
+                $date_str ?: '-',
+                (string) ($ctx['author'] ?? ''),
+                trim((string) $comment),
+                (string) ($ctx['post_id'] ?? ''),
+                (string) ($ctx['site'] ?? ''),
+                (string) ($ctx['permalink'] ?? ''),
+                isset($ai['error']) ? ($ai['error'] ? 'true' : 'false') : '',
+                (string) ($ai['label'] ?? ''),
+                isset($ai['score']) ? (string) $ai['score'] : '',
+                isset($ai['threshold']) ? (string) $ai['threshold'] : '',
+                trim((string) $reason),
+                isset($row['tsa_result']) ? ($row['tsa_result'] ? 'true' : 'false') : ''
+            );
+        }
+
+        return implode(PHP_EOL, $formatted);
     }
 
     /** ログ削除処理 */

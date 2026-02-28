@@ -11,7 +11,9 @@ Throws SPAM Away のフック `tsa_validate_comment` に統合されます。
 - APIキー・モデル名・タイムアウト秒数を設定画面から管理
 - Throws SPAM Away のスパム判定に AI 判定を統合
 - ログファイル出力機能（`wp-content/ai-spam-filter.log`）
+- 管理画面でログ閲覧可能（最新200行）
 - 管理画面からログ削除可能
+- `config.cgi` のURL指定による独自アップデート情報取得（`version.json`）
 
 ## Requirements
 
@@ -25,6 +27,7 @@ Throws SPAM Away のフック `tsa_validate_comment` に統合されます。
 2. 管理画面で有効化
 3. Throws SPAM Away が有効な場合、メニューに「AIスパムフィルター」が追加されます
 4. API キーやモデル名を入力して保存してください
+5. 自動アップデート連携を使う場合は、プラグインディレクトリに `config.cgi` を作成し、1行目に `version.json` のURLを記載してください
 
 ## Tested Vendors
 
@@ -35,7 +38,9 @@ Throws SPAM Away のフック `tsa_validate_comment` に統合されます。
 ## Notes
 
 - ログファイルは `wp-content/ai-spam-filter.log` に出力されます。
+- 管理画面ではログを1行整形で表示します（最新200行）。
 - 自動削除機能はありません。設定画面の「ログ削除」ボタン、または手動で削除してください。
+- `config.cgi` が未設定またはURL不正の場合、独自アップデートチェックは無効になります。
 
 ## License
 

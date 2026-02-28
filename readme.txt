@@ -3,7 +3,7 @@ Contributors: gti-inc
 Tags: spam, ai, openai, gemini, throws-spam-away
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 1.7.1
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,7 +18,9 @@ GTI AI Spam Filter は、WordPress プラグイン「Throws SPAM Away」の拡�
 * APIキー、モデル名、タイムアウト秒数などを設定画面から指定可能
 * Throws SPAM Away のスパム判定フック `tsa_validate_comment` に連携
 * ログファイル出力機能（wp-content/ai-spam-filter.log）
+* 管理画面でログ閲覧可能（最新200行）
 * ログ削除ボタンを管理画面から実行可能
+* `config.cgi` に指定した URL の `version.json` から更新情報を取得可能
 
 == Installation ==
 
@@ -26,6 +28,7 @@ GTI AI Spam Filter は、WordPress プラグイン「Throws SPAM Away」の拡�
 2. WordPress 管理画面から有効化
 3. Throws SPAM Away が有効化されている状態で、設定画面に「AIスパムフィルター」が追加されます
 4. 各ベンダーの API キーやモデルを設定してください
+5. 独自アップデートを利用する場合、プラグイン直下に `config.cgi` を作成し、1行目に `version.json` のURLを記載してください
 
 == Frequently Asked Questions ==
 
@@ -38,14 +41,22 @@ OpenAI、Google Gemini、または独自の Custom API を利用できます。
 
 = ログファイルはどう管理しますか？ =
 `wp-content/ai-spam-filter.log` に出力されます。  
+設定画面で最新200行を閲覧できます。  
 「設定画面 → ログ削除」ボタンで削除可能です。  
 自動ローテーション機能は未実装なので必要に応じて削除してください。
 
+= アップデート情報はどこから取得しますか？ =
+プラグイン直下の `config.cgi` 先頭行に設定した `version.json` のURLから取得します。  
+`config.cgi` がない、またはURLが不正な場合は独自アップデート連携は無効です。
+
 == Changelog ==
 
-= 1.7.1 =
+= 1.8.0 =
 * AI判定を Throws SPAM Away の `tsa_validate_comment` フックに統合
-* **ログ削除ボタンを設定画面に追加**
+* 管理画面にログ表示（最新200行）を追加
+* ログ表示を1行整形に改善
+* ログ削除ボタンを設定画面に追加
+* `config.cgi` 経由の `version.json` 取得による独自アップデートチェックを追加
 * OpenAI と Google Gemini での動作確認を反映
 
 = 1.6.1 =
@@ -53,5 +64,5 @@ OpenAI、Google Gemini、または独自の Custom API を利用できます。
 
 == Upgrade Notice ==
 
-= 1.7.1 =
-Throws SPAM Away の判定に AI を組み込み。OpenAI と Google Gemini で動作確認済み。ログ削除ボタンを追加。
+= 1.8.0 =
+Throws SPAM Away 連携の AI スパム判定に加え、管理画面ログ表示と `config.cgi` ベースの独自アップデートチェックを追加。

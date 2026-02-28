@@ -2,6 +2,12 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../gti.co.jp/cms"
+		},
+		{
+			"path": "../gti-forms"
 		}
 	],
 	"settings": {}

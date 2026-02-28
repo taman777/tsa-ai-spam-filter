@@ -595,6 +595,17 @@ class GTI_Ai_Spam_Filter
         file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
     }
 
+    /**
+     * 外部から使用可能なログ記録メソッド
+     *
+     * @param array $data ログデータ
+     * @return void
+     */
+    public function log_event($data)
+    {
+        $this->write_log($data);
+    }
+
     /** ---- 以下 judge_with_ai 系 ---- */
     private function judge_with_ai($ctx)
     {
@@ -749,4 +760,5 @@ class GTI_Ai_Spam_Filter
     }
 }
 
-new GTI_Ai_Spam_Filter();
+// グローバルに保存してfunctions.phpなどから利用可能に
+$GLOBALS['gti_ai_spam_filter'] = new GTI_Ai_Spam_Filter();

@@ -3,7 +3,7 @@
 /**
  * Plugin Name: GTI AI Spam Filter
  * Description: Throws SPAM Away と連携し、コメントを AI でスパム判定。有効/無効をスイッチで切替可能。AIベンダー選択で項目を切替。
- * Version:     1.7.0
+ * Version:     1.8.0
  * Author:      GTI Inc.
  */
 
@@ -12,12 +12,19 @@ if (!defined('ABSPATH')) exit;
 class GTI_Ai_Spam_Filter
 {
     const OPT_KEY = 'gti_ai_spam_filter_options';
+    const PLUGIN_SLUG = 'tsa-ai-spam-filter';
+    const UPDATE_CACHE_KEY = 'gti_ai_spam_filter_update_meta';
 
     public function __construct()
     {
         add_action('admin_menu', [$this, 'add_submenu']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
+        if ($this->get_update_json_url() !== '') {
+            add_filter('pre_set_site_transient_update_plugins', [$this, 'inject_update_info']);
+            add_filter('plugins_api', [$this, 'filter_plugins_api'], 10, 3);
+            add_action('upgrader_process_complete', [$this, 'clear_update_cache'], 10, 2);
+        }
 
         // Throws SPAM Away フィルターフック
         add_filter('tsa_validate_comment', [$this, 'filter_tsa_validate_comment'], 20, 6);
@@ -25,6 +32,157 @@ class GTI_Ai_Spam_Filter
         // ログ削除用
         add_action('admin_post_gti_ai_spam_filter_clear_log', [$this, 'clear_log_file']);
         add_action('admin_notices', [$this, 'admin_notices']);
+    }
+
+    /**
+     * WPの更新チェックへ独自配信情報を注入
+     *
+     * @param object $transient
+     * @return object
+     */
+    public function inject_update_info($transient)
+    {
+        if (empty($transient) || empty($transient->checked) || !is_object($transient)) {
+            return $transient;
+        }
+
+        $plugin_file = plugin_basename(__FILE__);
+        $current_version = isset($transient->checked[$plugin_file]) ? $transient->checked[$plugin_file] : null;
+        if (empty($current_version)) {
+            return $transient;
+        }
+
+        $meta = $this->get_update_meta();
+        if (empty($meta['version']) || empty($meta['download_url'])) {
+            return $transient;
+        }
+
+        if (version_compare($meta['version'], $current_version, '>')) {
+            $transient->response[$plugin_file] = (object) [
+                'slug'        => self::PLUGIN_SLUG,
+                'plugin'      => $plugin_file,
+                'new_version' => $meta['version'],
+                'url'         => isset($meta['url']) ? $meta['url'] : '',
+                'package'     => $meta['download_url'],
+            ];
+        }
+
+        return $transient;
+    }
+
+    /**
+     * プラグイン情報モーダルへ独自配信情報を注入
+     *
+     * @param mixed  $result
+     * @param string $action
+     * @param object $args
+     * @return mixed
+     */
+    public function filter_plugins_api($result, $action, $args)
+    {
+        if ($action !== 'plugin_information' || empty($args->slug) || $args->slug !== self::PLUGIN_SLUG) {
+            return $result;
+        }
+
+        $meta = $this->get_update_meta();
+        if (empty($meta['version']) || empty($meta['download_url'])) {
+            return $result;
+        }
+
+        $sections = isset($meta['sections']) && is_array($meta['sections']) ? $meta['sections'] : [];
+        return (object) [
+            'name'          => isset($meta['name']) ? $meta['name'] : 'GTI AI Spam Filter',
+            'slug'          => self::PLUGIN_SLUG,
+            'version'       => $meta['version'],
+            'author'        => 'GTI Inc.',
+            'homepage'      => isset($meta['url']) ? $meta['url'] : '',
+            'download_link' => $meta['download_url'],
+            'last_updated'  => isset($meta['last_updated']) ? $meta['last_updated'] : '',
+            'sections'      => [
+                'description' => isset($sections['description']) ? $sections['description'] : '',
+                'changelog'   => isset($sections['changelog']) ? $sections['changelog'] : '',
+            ],
+        ];
+    }
+
+    /**
+     * 更新処理後にversion.jsonキャッシュを破棄
+     *
+     * @param object $upgrader
+     * @param array  $options
+     * @return void
+     */
+    public function clear_update_cache($upgrader, $options)
+    {
+        if (empty($options['type']) || $options['type'] !== 'plugin') {
+            return;
+        }
+        delete_site_transient(self::UPDATE_CACHE_KEY);
+    }
+
+    /**
+     * version.json を取得して配列化
+     *
+     * @return array
+     */
+    private function get_update_meta()
+    {
+        $cached = get_site_transient(self::UPDATE_CACHE_KEY);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $update_url = $this->get_update_json_url();
+        if ($update_url === '') {
+            return [];
+        }
+
+        $raw = '';
+        $res = wp_remote_get($update_url, ['timeout' => 8]);
+        if (!is_wp_error($res)) {
+            $raw = wp_remote_retrieve_body($res);
+        }
+
+        if (empty($raw)) {
+            return [];
+        }
+
+        $meta = json_decode($raw, true);
+        if (!is_array($meta) || empty($meta['version']) || empty($meta['download_url'])) {
+            return [];
+        }
+
+        set_site_transient(self::UPDATE_CACHE_KEY, $meta, HOUR_IN_SECONDS * 6);
+        return $meta;
+    }
+
+    /**
+     * config.cgi の先頭有効行から更新用version.jsonのURLを取得
+     *
+     * @return string
+     */
+    private function get_update_json_url()
+    {
+        static $cached_url = null;
+        if ($cached_url !== null) {
+            return $cached_url;
+        }
+
+        $config_file = dirname(__FILE__) . '/config.cgi';
+        if (!file_exists($config_file) || !is_readable($config_file)) {
+            $cached_url = '';
+            return $cached_url;
+        }
+
+        $lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (empty($lines)) {
+            $cached_url = '';
+            return $cached_url;
+        }
+
+        $url = trim((string) $lines[0]);
+        $cached_url = filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
+        return $cached_url;
     }
 
     /** メニュー追加 */

@@ -313,28 +313,47 @@ class GTI_Ai_Spam_Filter
 
             $ctx = isset($row['context']) && is_array($row['context']) ? $row['context'] : [];
             $ai = isset($row['ai']) && is_array($row['ai']) ? $row['ai'] : [];
+            $type = isset($row['type']) ? $row['type'] : '';
+
 
             // 必須項目がない不完全なログ、または空の判定は表示上スキップ
             if (empty($ctx['comment']) && empty($ctx['author'])) continue;
 
             // 一行で
-            $comment = preg_replace('/\s+/u', ' ', (string) ($ctx['comment'] ?? ''));
-            $reason = preg_replace('/\s+/u', ' ', (string) ($ai['reason'] ?? ''));
-            $formatted[] = sprintf(
-                "[%s] author=%s | comment=%s | post_id=%s | site=%s | permalink=%s | ai.error=%s | ai.label=%s | ai.score=%s | ai.threshold=%s | ai.reason=%s | tsa_result=%s",
-                $date_str ?: '-',
-                (string) ($ctx['author'] ?? ''),
-                trim((string) $comment),
-                (string) ($ctx['post_id'] ?? ''),
-                (string) ($ctx['site'] ?? ''),
-                (string) ($ctx['permalink'] ?? ''),
-                isset($ai['error']) ? ($ai['error'] ? 'true' : 'false') : '',
-                (string) ($ai['label'] ?? ''),
-                isset($ai['score']) ? (string) $ai['score'] : '',
-                isset($ai['threshold']) ? (string) $ai['threshold'] : '',
-                trim((string) $reason),
-                isset($row['tsa_result']) ? ($row['tsa_result'] ? 'true' : 'false') : ''
-            );
+            // IP禁止措置の場合[[2026-02-28 07:32:12] {"type":"blocked_ip_attempt","ip":"160.251.155.126","form_id":354,"data":{"ご用件は":"仕事のご依頼について","お名前 ※会社名等もあれば記載してください":"テスター","メールアドレス":"t.satoh@gti.jp","件名":"ががががががが","メッセージ内容 ":"がががが\r\n\r\nががが","一方的な営業目的のお知らせ、または提案の場合、処理手数料として ￥5,000（税込 ￥5,500）をご請求させていただくことに同意します。":"同意する"}}]
+            if ($type === 'blocked_ip_attempt') {
+                $ip = $row['ip'];
+                $form_id = $row['form_id'];
+                $data = $row['data'];
+                $data_str = json_encode($data, JSON_UNESCAPED_UNICODE);
+                $formatted[] = sprintf(
+                    "[%s] TYPE=%s | ip=%s | form_id=%s | data=%s | tsa_result=%s",
+                    $date_str ?: '-',
+                    $type,
+                    $ip,
+                    $form_id,
+                    $data_str,
+                    isset($row['tsa_result']) ? ($row['tsa_result'] ? 'true' : 'false') : ''
+                );
+            } else {
+                $comment = preg_replace('/\s+/u', ' ', (string) ($ctx['comment'] ?? ''));
+                $reason = preg_replace('/\s+/u', ' ', (string) ($ai['reason'] ?? ''));
+                $formatted[] = sprintf(
+                    "[%s] author=%s | comment=%s | post_id=%s | site=%s | permalink=%s | ai.error=%s | ai.label=%s | ai.score=%s | ai.threshold=%s | ai.reason=%s | tsa_result=%s",
+                    $date_str ?: '-',
+                    (string) ($ctx['author'] ?? ''),
+                    trim((string) $comment),
+                    (string) ($ctx['post_id'] ?? ''),
+                    (string) ($ctx['site'] ?? ''),
+                    (string) ($ctx['permalink'] ?? ''),
+                    isset($ai['error']) ? ($ai['error'] ? 'true' : 'false') : '',
+                    (string) ($ai['label'] ?? ''),
+                    isset($ai['score']) ? (string) $ai['score'] : '',
+                    isset($ai['threshold']) ? (string) $ai['threshold'] : '',
+                    trim((string) $reason),
+                    isset($row['tsa_result']) ? ($row['tsa_result'] ? 'true' : 'false') : ''
+                );
+            }
         }
 
         return implode(PHP_EOL, $formatted);
@@ -945,9 +964,12 @@ class GTI_Ai_Spam_Filter
         $opt = $this->get_options();
         $course = $opt['response_course'] ?? 'standard';
         switch ($course) {
-            case 'economy': return 10;
-            case 'celeb':   return 800;
-            default:        return 300;
+            case 'economy':
+                return 10;
+            case 'celeb':
+                return 800;
+            default:
+                return 300;
         }
     }
 
